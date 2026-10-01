@@ -1,0 +1,233 @@
+@import 'tailwindcss';
+
+/* ------------------------------------------------------------------------- */
+/* Design tokens                                                              */
+/* Calm, professional palette: indigo primary, green/amber/red semantics.     */
+/* ------------------------------------------------------------------------- */
+@theme {
+  --color-brand-50: #eef2ff;
+  --color-brand-100: #e0e7ff;
+  --color-brand-200: #c7d2fe;
+  --color-brand-300: #a5b4fc;
+  --color-brand-400: #818cf8;
+  --color-brand-500: #6366f1;
+  --color-brand-600: #4f46e5;
+  --color-brand-700: #4338ca;
+  --color-brand-800: #3730a3;
+  --color-brand-900: #312e81;
+
+  --font-sans:
+    'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue',
+    Arial, sans-serif;
+
+  --radius-card: 1rem;
+
+  --shadow-card: 0 1px 2px 0 rgb(15 23 42 / 0.04), 0 1px 12px -2px rgb(15 23 42 / 0.06);
+  --shadow-float: 0 12px 32px -8px rgb(15 23 42 / 0.18);
+}
+
+/* ------------------------------------------------------------------------- */
+/* Base                                                                       */
+/* ------------------------------------------------------------------------- */
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-slate-100 text-slate-800 antialiased;
+    font-family: var(--font-sans);
+  }
+
+  /* Visible focus for keyboard users on every interactive element. */
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-brand-600;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply text-slate-900;
+  }
+
+  /* Respect the user's reduced-motion preference. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* ------------------------------------------------------------------------- */
+/* Reusable component classes                                                 */
+/* ------------------------------------------------------------------------- */
+@layer components {
+  .card {
+    @apply rounded-2xl border border-slate-200 bg-white shadow-[var(--shadow-card)];
+  }
+
+  .card-pad {
+    @apply p-4 sm:p-5;
+  }
+
+  .section-title {
+    @apply text-base font-semibold text-slate-900 sm:text-lg;
+  }
+
+  .muted {
+    @apply text-sm text-slate-500;
+  }
+
+  /* --- buttons ---
+     Tailwind v4 cannot @apply another custom component class, so the shared
+     base is expressed as a grouped selector and each variant only adds colour. */
+  .btn,
+  .btn-primary,
+  .btn-secondary,
+  .btn-ghost,
+  .btn-danger,
+  .btn-success {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm
+      font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .btn-primary {
+    @apply bg-brand-700 text-white hover:bg-brand-800;
+  }
+
+  .btn-secondary {
+    @apply border border-slate-300 bg-white text-slate-700 hover:bg-slate-50;
+  }
+
+  .btn-ghost {
+    @apply text-slate-600 hover:bg-slate-100;
+  }
+
+  .btn-danger {
+    @apply bg-red-600 text-white hover:bg-red-700;
+  }
+
+  .btn-success {
+    @apply bg-emerald-600 text-white hover:bg-emerald-700;
+  }
+
+  /* Placed after the variants so a `btn-primary btn-sm` pairing wins. */
+  .btn-sm {
+    @apply rounded-lg px-3 py-1.5 text-xs;
+  }
+
+  /* --- forms --- */
+  .label {
+    @apply mb-1.5 block text-sm font-medium text-slate-700;
+  }
+
+  .input {
+    @apply block w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm
+      text-slate-900 placeholder:text-slate-400 focus:border-brand-500 focus:ring-2
+      focus:ring-brand-500/30 focus:outline-none disabled:bg-slate-100;
+  }
+
+  .input-error {
+    @apply border-red-400 focus:border-red-500 focus:ring-red-500/30;
+  }
+
+  .field-error {
+    @apply mt-1.5 text-xs font-medium text-red-600;
+  }
+
+  .hint {
+    @apply mt-1.5 text-xs text-slate-500;
+  }
+
+  /* --- badges: always paired with text, never colour alone --- */
+  .badge,
+  .badge-neutral,
+  .badge-success,
+  .badge-warning,
+  .badge-danger,
+  .badge-info {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold;
+  }
+
+  .badge-neutral {
+    @apply bg-slate-100 text-slate-700;
+  }
+
+  .badge-success {
+    @apply bg-emerald-100 text-emerald-800;
+  }
+
+  .badge-warning {
+    @apply bg-amber-100 text-amber-800;
+  }
+
+  .badge-danger {
+    @apply bg-red-100 text-red-800;
+  }
+
+  .badge-info {
+    @apply bg-brand-100 text-brand-800;
+  }
+
+  /* --- tables --- */
+  .table-wrap {
+    @apply -mx-4 overflow-x-auto sm:mx-0;
+  }
+
+  .data-table {
+    @apply min-w-full border-separate border-spacing-0 text-sm;
+  }
+
+  .data-table thead th {
+    @apply sticky top-0 z-10 whitespace-nowrap border-b border-slate-200 bg-slate-50 px-4 py-3
+      text-left text-xs font-semibold tracking-wide text-slate-600 uppercase;
+  }
+
+  .data-table tbody td {
+    @apply border-b border-slate-100 px-4 py-3 align-middle text-slate-700;
+  }
+
+  .data-table tbody tr:hover {
+    @apply bg-brand-50/40;
+  }
+
+  /* --- sidebar --- */
+  .nav-link {
+    @apply flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-600
+      transition-colors hover:bg-slate-100 hover:text-slate-900;
+  }
+
+  /* Wins over .nav-link because it is declared later in the same layer. */
+  .nav-link-active {
+    @apply bg-brand-50 text-brand-800;
+  }
+
+  .skeleton {
+    @apply animate-pulse rounded-lg bg-slate-200;
+  }
+}
+
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+
+  /* Safe area for mobile bottom navigation on notched devices. */
+  .pb-safe {
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0.5rem);
+  }
+}
+
+/* React Toastify: nudge toasts below the sticky mobile header. */
+.Toastify__toast {
+  border-radius: 0.875rem;
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+}
