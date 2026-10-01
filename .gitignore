@@ -1,0 +1,61 @@
+# ---------------------------------------------------------------------------
+# Hostel Management System - repository ignores
+# ---------------------------------------------------------------------------
+
+# --- Secrets ---------------------------------------------------------------
+# Never commit real environment files. .env.example is the tracked template.
+.env
+.env.*
+!.env.example
+
+# --- Python ----------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+eggs/
+.eggs/
+*.egg-info/
+*.egg
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# --- Local data ------------------------------------------------------------
+# SQLite development database - recreate with `flask db upgrade && python seed.py`.
+*.db
+*.sqlite
+*.sqlite3
+
+# User-uploaded media lives on a disk/bucket in deployed environments.
+backend/uploads/
+backend/tests/_uploads/
+
+# --- Logs ------------------------------------------------------------------
+*.log
+logs/
+
+# --- Editors / OS ----------------------------------------------------------
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo

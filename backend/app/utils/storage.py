@@ -228,4 +228,25 @@ def file_url(relative_path):
 
 
 def ensure_upload_folder(app):
-    os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+    """Create the upload directory, falling back if the configured path fails.
+
+    A misconfigured mount (for example ``UPLOAD_FOLDER`` pointing at a disk that
+    was never attached) should not crash-loop the service. Returns the folder
+    that is actually usable.
+    """
+    configured = app.config["UPLOAD_FOLDER"]
+    try:
+        os.makedirs(configured, exist_ok=True)
+        return configured
+    except OSError as exc:
+        fallback = str(Path(app.root_path).parent / "uploads")
+        app.logger.error(
+            "Cannot use UPLOAD_FOLDER %s (%s). Falling back to %s, which is not "
+            "persistent. Fix the mount or configure object storage.",
+            configured,
+            exc,
+            fallback,
+        )
+        os.makedirs(fallback, exist_ok=True)
+        app.config["UPLOAD_FOLDER"] = fallback
+        return fallback

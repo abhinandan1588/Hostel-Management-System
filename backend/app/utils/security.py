@@ -65,8 +65,12 @@ def user_agent():
     return (request.headers.get("User-Agent") or "")[:255]
 
 
-def apply_security_headers(response):
-    """Conservative hardening headers for a JSON API."""
+def apply_security_headers(response, hsts=False, hsts_max_age=31536000):
+    """Conservative hardening headers for a JSON API.
+
+    ``hsts`` is opt-in because sending Strict-Transport-Security over plain HTTP
+    (or from a local dev server) is useless at best and sticky at worst.
+    """
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("X-Frame-Options", "DENY")
     response.headers.setdefault("Referrer-Policy", "no-referrer")
@@ -75,4 +79,8 @@ def apply_security_headers(response):
         "Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'; base-uri 'none'"
     )
     response.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
+    if hsts and request.is_secure:
+        response.headers.setdefault(
+            "Strict-Transport-Security", f"max-age={int(hsts_max_age)}; includeSubDomains"
+        )
     return response

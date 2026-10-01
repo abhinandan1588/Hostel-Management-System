@@ -8,7 +8,7 @@ from pathlib import Path
 
 from flask import Blueprint, current_app, send_from_directory
 
-from ..extensions import db
+from ..extensions import db, limiter
 from ..utils.errors import NotFound
 from ..utils.responses import success
 
@@ -35,11 +35,20 @@ def serve_media(relative_path):
 
 @media_bp.get("/healthz")
 @media_bp.get("/status")
+@limiter.exempt
 def health_check():
     """Liveness/readiness probe.
 
     Deliberately *not* at ``/api/health`` - that path belongs to student health
     records (see ``health_bp``).
+
+    Exempt from rate limiting on purpose: platform health checkers poll every
+    few seconds from a single address, which would burn through
+    ``RATELIMIT_DEFAULT`` and get the service marked unhealthy.
+
+    Returns 200 even when the database is unreachable, with
+    ``data.status == "degraded"``. A transient database outage should not make
+    the platform restart or roll back an otherwise healthy container.
     """
     from sqlalchemy import text
 

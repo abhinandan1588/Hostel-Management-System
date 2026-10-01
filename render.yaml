@@ -1,0 +1,188 @@
+# ---------------------------------------------------------------------------
+# Render Blueprint - Hostel Management System API
+#
+# Deploy: Render Dashboard -> New -> Blueprint -> pick this repository.
+# Render reads this file, creates the Postgres instance and the web service,
+# and prompts for the values marked `sync: false`.
+#
+# Full walkthrough: docs/DEPLOY_RENDER.md
+# Spec reference:   https://render.com/docs/blueprint-spec
+# ---------------------------------------------------------------------------
+
+databases:
+  - name: hms-postgres
+    databaseName: hostel_db
+    user: hms
+    # `free` gives 1 GB and 256 MB RAM, but the instance EXPIRES 30 DAYS after
+    # creation and is then deleted. Use a paid plan (e.g. 0.5c-1g) for anything
+    # you care about keeping.
+    plan: free
+    region: oregon
+    postgresMajorVersion: "17"
+    # Empty list = no public internet access; only Render services can connect.
+    # Remove this (or add your own CIDR) if you need to connect with psql from
+    # your machine.
+    ipAllowList: []
+
+services:
+  - type: web
+    name: hms-api
+    runtime: python
+    plan: free
+    region: oregon # must match the database region to use the private network
+    # Everything the API needs lives in backend/. Setting rootDir also scopes
+    # autodeploys: pushes that only touch frontend/ will not redeploy the API.
+    rootDir: backend
+    branch: main
+    autoDeploy: true
+
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
+    # Invoked through bash so a missing executable bit in Git cannot break the
+    # deploy. The script runs `flask db upgrade`, then execs Gunicorn.
+    startCommand: bash ./render_start.sh
+
+    # NOT "/api/health" - that path serves student health records. The probe
+    # endpoint is /api/healthz (also aliased at /api/status).
+    healthCheckPath: /api/healthz
+
+    envVars:
+      # --- Runtime ------------------------------------------------------
+      - key: FLASK_ENV
+        value: production
+      - key: FLASK_APP
+        value: wsgi:app
+      # Python version comes from .python-version (3.14), which exists both at
+      # the repo root and in backend/ because Render documents the repo root
+      # while the build itself runs in rootDir. Omitting the patch version lets
+      # Render pick the latest 3.14.x.
+      # Setting PYTHON_VERSION here would take precedence and must be fully
+      # qualified (e.g. 3.14.3), so leave it unset unless you need one patch.
+      - key: PYTHONUNBUFFERED
+        value: "1"
+
+      # Gunicorn sizing. Two workers x 4 threads fits the 512 MB free
+      # instance; raise alongside the plan and the database connection cap.
+      - key: WEB_CONCURRENCY
+        value: "2"
+      - key: GUNICORN_THREADS
+        value: "4"
+
+      # The free plan has no pre-deploy command and no shell, so migrations
+      # run in the start command. Keep a single instance while this is true.
+      - key: RUN_MIGRATIONS_ON_START
+        value: "true"
+
+      # --- Database -----------------------------------------------------
+      # Render supplies a postgresql:// URL; the app rewrites it to
+      # postgresql+psycopg:// for the psycopg 3 driver.
+      - key: DATABASE_URL
+        fromDatabase:
+          name: hms-postgres
+          property: connectionString
+
+      # Per-worker pool. Total connections = WEB_CONCURRENCY x (size + overflow),
+      # which must stay under the plan's limit (100 on free/small plans).
+      - key: DB_POOL_SIZE
+        value: "5"
+      - key: DB_MAX_OVERFLOW
+        value: "5"
+
+      # --- Secrets ------------------------------------------------------
+      # Render mints a random 256-bit base64 value on first sync and keeps it
+      # stable across deploys. The app refuses to start on a short or
+      # placeholder secret, so do not replace these with literals.
+      - key: SECRET_KEY
+        generateValue: true
+      - key: JWT_SECRET_KEY
+        generateValue: true
+
+      # --- Frontend wiring ----------------------------------------------
+      # Comma-separated browser origins allowed to call the API. The app
+      # refuses to start if this is empty.
+      # e.g. https://hms-web.onrender.com,https://hostel.example.com
+      - key: CORS_ORIGINS
+        sync: false
+      # Base URL used to build password-reset links in outgoing mail.
+      - key: FRONTEND_BASE_URL
+        sync: false
+
+      # --- First administrator ------------------------------------------
+      # Only an admin can create another admin, and a fresh database has none.
+      # `flask post-deploy` creates this one account, then no-ops on every
+      # later deploy. Change the password after the first sign-in.
+      - key: BOOTSTRAP_ADMIN_EMAIL
+        sync: false
+      - key: BOOTSTRAP_ADMIN_PASSWORD
+        sync: false
+      - key: BOOTSTRAP_ADMIN_NAME
+        value: Hostel Administrator
+
+      # --- Mail (optional) ----------------------------------------------
+      # Leave MAIL_ENABLED false to skip SMTP entirely: password-reset tokens
+      # are then only written to the service logs.
+      - key: MAIL_ENABLED
+        value: "false"
+      - key: MAIL_SUPPRESS_SEND
+        value: "true"
+      - key: MAIL_SERVER
+        sync: false
+      - key: MAIL_PORT
+        value: "587"
+      - key: MAIL_USE_TLS
+        value: "true"
+      - key: MAIL_USERNAME
+        sync: false
+      - key: MAIL_PASSWORD
+        sync: false
+      - key: MAIL_DEFAULT_SENDER
+        sync: false
+
+      # --- Rate limiting ------------------------------------------------
+      - key: RATELIMIT_ENABLED
+        value: "true"
+      - key: RATELIMIT_DEFAULT
+        value: 600 per hour
+      - key: AUTH_RATELIMIT
+        value: 10 per minute
+      # In-memory counters are per worker, so the effective limit is multiplied
+      # by WEB_CONCURRENCY. Uncomment the Key Value service below and this
+      # variable to share one counter across workers.
+      # - key: REDIS_URL
+      #   fromService:
+      #     name: hms-keyvalue
+      #     type: keyvalue
+      #     property: connectionString
+
+      # --- Uploads ------------------------------------------------------
+      # WITHOUT A DISK, UPLOADED FILES ARE LOST ON EVERY DEPLOY. The container
+      # filesystem is ephemeral. The app logs a warning at boot when this is
+      # the case. Three options:
+      #   1. Accept it (fine for a demo).
+      #   2. Attach the disk below (paid plan) and uncomment these two vars.
+      #   3. Serve media from a bucket/CDN via PUBLIC_MEDIA_BASE_URL.
+      # - key: UPLOAD_FOLDER
+      #   value: /var/data/uploads
+      # - key: UPLOADS_ARE_PERSISTENT
+      #   value: "true"
+      - key: MAX_CONTENT_LENGTH
+        value: "8388608"
+
+    # --- Persistent disk (paid plans only) ------------------------------
+    # A disk pins the service to one instance, so it cannot scale
+    # horizontally. Uncomment together with UPLOAD_FOLDER above.
+    # disk:
+    #   name: hms-uploads
+    #   mountPath: /var/data
+    #   sizeGB: 1
+
+  # --- Shared rate-limit store (optional) -------------------------------
+  # Uncomment this service together with the REDIS_URL variable above. Free
+  # Key Value instances have no persistence, which is fine for rate-limit
+  # counters. ipAllowList is required for this service type.
+  #
+  # - type: keyvalue
+  #   name: hms-keyvalue
+  #   plan: free
+  #   region: oregon
+  #   ipAllowList: []
+  #   maxmemoryPolicy: allkeys-lru
